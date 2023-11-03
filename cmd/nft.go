@@ -15,9 +15,9 @@ var downloadNftCmd = &cobra.Command{
 	Short: "",
 	Long:  `download metas and images from a nft contract`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("nft called")
+		rpc, _ := cmd.Flags().GetString("rpc")
 
-		nft.Setup()
+		nft.Setup(rpc)
 
 		contract, err := cmd.Flags().GetString("contract")
 		if err != nil {
@@ -90,7 +90,12 @@ var packMetaCmd = &cobra.Command{
 	Use: "packMeta",
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("pack meta")
-		err := nft.ReplaceImageInMeta("./download", "https://a.com")
+		uri, _ := cmd.Flags().GetString("uri")
+		if uri[len(uri)-1:] == "/" {
+			// remove last slash
+			uri = uri[0 : len(uri)-1]
+		}
+		err := nft.ReplaceImageInMeta("./download", uri)
 		if err != nil {
 			logrus.Error("replace image err : ", err)
 			return
@@ -104,12 +109,16 @@ func init() {
 	rootCmd.AddCommand(packImageCmd)
 	rootCmd.AddCommand(packMetaCmd)
 
+	packMetaCmd.Flags().String("uri", "", "gateway uri")
+	_ = packMetaCmd.MarkPersistentFlagRequired("uri")
+
 	// Here you will define your flags and configuration settings.
 
 	// Cobra supports Persistent Flags which will work for this command
 	// and all subcommands, e.g.:
 	downloadNftCmd.PersistentFlags().String("contract", "", "base32 contract address")
 	_ = downloadNftCmd.MarkPersistentFlagRequired("contract")
+	downloadNftCmd.Flags().String("rpc", "", "blockchain rpc")
 
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:

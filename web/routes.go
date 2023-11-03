@@ -26,7 +26,13 @@ func Routes(route *gin.Engine) {
 	})
 	group.GET("/", api.Wrap(hello))
 	group.POST("/store", authWrap(nftStore))
+	// example path: /res/0x***/1.json
 	group.GET("/res/:root/:name", resourceRequest)
+	// append .json, and redirect
+	group.GET("/storage/meta/:root/:id", func(c *gin.Context) {
+		c.Redirect(http.StatusMovedPermanently, group.BasePath()+
+			"/res/"+c.Param("root")+"/"+c.Param("id")+".json")
+	})
 }
 
 func resourceRequest(ctx *gin.Context) {

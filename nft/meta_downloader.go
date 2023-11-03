@@ -20,6 +20,7 @@ import (
 )
 
 var cfxClient *sdk.Client
+var netId uint32
 var callOpts = &bind.CallOpts{
 	EpochNumber: types.EpochLatestState,
 }
@@ -31,20 +32,23 @@ type ContractContext struct {
 	uriBulkCaller *openzeppelin.IERC721MetadataBulkCaller
 }
 
-func Setup() {
+func Setup(rpc string) {
 	url := "https://main.confluxrpc.org"
+	if len(rpc) > 0 {
+		url = rpc
+	}
 	client, err := sdk.NewClient(url)
 	if err != nil {
 		logrus.WithError(err).Fatal("can not create cfx client")
 		return
 	}
 	cfxClient = client
-	netId, _ := cfxClient.GetNetworkID()
-	logrus.Info("network id ", netId)
+	netId, err := cfxClient.GetNetworkID()
+	logrus.WithFields(logrus.Fields{"rpc": rpc, "error": err}).Info("network id ", netId)
 }
 
 func BuildERC721Enumerable(base32addr string) (*ContractContext, error) {
-	address, err := cfxaddress.New(base32addr)
+	address, err := cfxaddress.New(base32addr, netId)
 	if err != nil {
 		return nil, errors.WithMessage(err, "failed to create cfx address from "+base32addr)
 	}
@@ -75,12 +79,17 @@ func BuildERC721Enumerable(base32addr string) (*ContractContext, error) {
 		idBulkCaller:  idBulkCaller,
 		uriBulkCaller: metaBulkCaller,
 	}
-
+	name, err := erc721Caller.Name(callOpts)
+	if err != nil {
+		return nil, errors.WithMessage(err, "failed to get name")
+	}
+	logrus.Info("name is ", name)
 	return ctx, nil
 }
 
 func GetTokenIds(ctx *ContractContext, offset int, limit int) ([]**big.Int, error) {
-	if big.NewInt(int64(offset)).Cmp(&ctx.totalSupply) >= 0 {
+	intTotal := int(ctx.totalSupply.Int64())
+	if offset >= intTotal {
 		return nil, fmt.Errorf("offset exceeds total supply, %v > %v", offset, ctx.totalSupply)
 	}
 
@@ -89,6 +98,9 @@ func GetTokenIds(ctx *ContractContext, offset int, limit int) ([]**big.Int, erro
 	var ids []**big.Int
 	index := offset
 	for i := 0; i < limit; i++ {
+		if index >= intTotal {
+			break
+		}
 		v, e := ctx.idBulkCaller.TokenByIndex(*bulkCaller, callOpts, big.NewInt(int64(index)))
 		ids = append(ids, v)
 		errArr = append(errArr, e)
@@ -99,14 +111,16 @@ func GetTokenIds(ctx *ContractContext, offset int, limit int) ([]**big.Int, erro
 		return nil, errors.WithMessage(errExec, "failed to call TokenByIndex")
 	}
 
-	var comboErr error
-	index = offset
-	for i := 0; i < limit; i++ {
-		comboErr = errors.WithMessage(*errArr[i], fmt.Sprintf("has error at %v", index))
-		index++
+	var comboErr = ""
+	for i := range errArr {
+		if *errArr[i] != nil {
+			comboErr += (*errArr[i]).Error() + ";"
+		}
 	}
-
-	return ids, comboErr
+	if len(comboErr) > 0 {
+		return nil, errors.New(comboErr)
+	}
+	return ids, nil
 }
 
 func GetTokenURIs(ctx *ContractContext, ids []**big.Int) ([]*string, error) {

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"github.com/Conflux-Chain/neurahive-client/file"
 	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
 	"io"
 	"io/ioutil"
 	"os"
@@ -147,7 +146,7 @@ func ReplaceImageInMeta(dir string, urlPrefix string) error {
 		return errors.WithMessage(err, "failed to filter image list")
 	}
 
-	wrappedFile, err := file.Open(fmt.Sprintf("%s%c/pack.bin", dir, os.PathSeparator))
+	wrappedFile, err := file.Open(fmt.Sprintf("%s%cimage.bin", dir, os.PathSeparator))
 	if err != nil {
 		return errors.WithMessage(err, "failed to open pack.bin")
 	}
@@ -190,7 +189,7 @@ func matchImageList(metaFile string, imageList []string) string {
 	metaId := metaFile[0 : len(metaFile)-4] // eg. 123.json->123.
 	metaId = metaId + "image."
 	for _, f := range imageList {
-		logrus.Debug(f, " ", metaId)
+		//logrus.Debug("matchImageList", f, " ", metaId)
 		if strings.Index(f, metaId) == 0 {
 			return f
 		}
