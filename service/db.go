@@ -15,6 +15,41 @@ var MigrationModels = []interface{}{
 	&RootIndex{},
 	&FileTxQueue{},
 	&FileStoreQueue{},
+
+	&Migration{},
+	&Config{},
+}
+
+const ConfigDownloadingID = "downloading"
+
+type Config struct {
+	Name  string `json:"name" gorm:"primary_key"`
+	Value string `json:"value" gorm:"type: varchar(255) null"`
+}
+
+const MigrationStatusDownload = "download"
+const MigrationStatusPackImage = "packImage"
+const MigrationStatusPackMeta = "packMeta"
+const MigrationStatusUploadImage = "uploadImage"
+const MigrationStatusWaitUploadingImage = "waitUploadingImage"
+const MigrationStatusUploadMeta = "uploadMeta"
+const MigrationStatusWaitUploadingMeta = "waitUploadingMeta"
+const MigrationStatusFinish = "finish"
+
+type Migration struct {
+	Id               int64      `json:"id" gorm:"primary_key"`
+	Addr             string     `json:"addr" binding:"required" gorm:"type: varchar(128) not null unique"`
+	ChainRpc         string     `json:"chainRpc" binding:"" gorm:"type: varchar(300) not null"`
+	TotalSupply      int        `json:"totalSupply" gorm:""`
+	DownloadedMeta   int        `json:"downloadedMeta" gorm:""`
+	Status           string     `json:"status" binding:"" gorm:"type: varchar(64) not null"`
+	ImageFileEntryId int        `json:"imageFileEntryId" gorm:""`
+	MetaFileEntryId  int        `json:"metaFileEntryId" gorm:""`
+	ImageUploaded    bool       `json:"imageUploaded" binding:"" gorm:"type: bool not null"`
+	MetaUploaded     bool       `json:"metaUploaded" binding:"" gorm:"type: bool not null"`
+	Name             string     `json:"name" binding:"required" gorm:"type: varchar(128) not null"`
+	CreatedAt        *time.Time `json:"created_at,string,omitempty"`
+	UpdatedAt        *time.Time `json:"updated_at,string,omitempty"`
 }
 
 type FileEntry struct {

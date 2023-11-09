@@ -21,18 +21,20 @@ import (
 
 var cfxClient *sdk.Client
 var netId uint32
-var callOpts = &bind.CallOpts{
+var CallOpts = &bind.CallOpts{
 	EpochNumber: types.EpochLatestState,
 }
 
 type ContractContext struct {
 	base32addr    string
-	totalSupply   big.Int
-	idBulkCaller  *openzeppelin.ERC721EnumerableBulkCaller
+	TotalSupply   big.Int
+	IdBulkCaller  *openzeppelin.ERC721EnumerableBulkCaller
 	uriBulkCaller *openzeppelin.IERC721MetadataBulkCaller
+	Name          string
+	Caller        *openzeppelin.ERC721EnumerableCaller
 }
 
-func Setup(rpc string) {
+func Setup(rpc string) error {
 	url := "https://main.confluxrpc.org"
 	if len(rpc) > 0 {
 		url = rpc
@@ -40,11 +42,12 @@ func Setup(rpc string) {
 	client, err := sdk.NewClient(url)
 	if err != nil {
 		logrus.WithError(err).Fatal("can not create cfx client")
-		return
+		return err
 	}
 	cfxClient = client
 	netId, err := cfxClient.GetNetworkID()
 	logrus.WithFields(logrus.Fields{"rpc": rpc, "error": err}).Info("network id ", netId)
+	return nil
 }
 
 func BuildERC721Enumerable(base32addr string) (*ContractContext, error) {
@@ -68,29 +71,32 @@ func BuildERC721Enumerable(base32addr string) (*ContractContext, error) {
 		return nil, errors.WithMessage(err, "failed to call NewIERC721MetadataBulkCaller")
 	}
 
-	sup, err := erc721Caller.TotalSupply(callOpts)
+	sup, err := erc721Caller.TotalSupply(CallOpts)
 	if err != nil {
 		return nil, errors.WithMessage(err, "failed to call TotalSupply")
 	}
 
-	ctx := &ContractContext{
-		base32addr:    base32addr,
-		totalSupply:   *sup,
-		idBulkCaller:  idBulkCaller,
-		uriBulkCaller: metaBulkCaller,
-	}
-	name, err := erc721Caller.Name(callOpts)
+	name, err := erc721Caller.Name(CallOpts)
 	if err != nil {
 		return nil, errors.WithMessage(err, "failed to get name")
+	}
+
+	ctx := &ContractContext{
+		base32addr:    base32addr,
+		TotalSupply:   *sup,
+		IdBulkCaller:  idBulkCaller,
+		uriBulkCaller: metaBulkCaller,
+		Name:          name,
+		Caller:        erc721Caller,
 	}
 	logrus.Info("name is ", name)
 	return ctx, nil
 }
 
 func GetTokenIds(ctx *ContractContext, offset int, limit int) ([]**big.Int, error) {
-	intTotal := int(ctx.totalSupply.Int64())
+	intTotal := int(ctx.TotalSupply.Int64())
 	if offset >= intTotal {
-		return nil, fmt.Errorf("offset exceeds total supply, %v > %v", offset, ctx.totalSupply)
+		return nil, fmt.Errorf("offset exceeds total supply, %v > %v", offset, ctx.TotalSupply)
 	}
 
 	bulkCaller := bulk.NewBulkCaller(cfxClient)
@@ -101,7 +107,7 @@ func GetTokenIds(ctx *ContractContext, offset int, limit int) ([]**big.Int, erro
 		if index >= intTotal {
 			break
 		}
-		v, e := ctx.idBulkCaller.TokenByIndex(*bulkCaller, callOpts, big.NewInt(int64(index)))
+		v, e := ctx.IdBulkCaller.TokenByIndex(*bulkCaller, CallOpts, big.NewInt(int64(index)))
 		ids = append(ids, v)
 		errArr = append(errArr, e)
 		index++
@@ -128,7 +134,7 @@ func GetTokenURIs(ctx *ContractContext, ids []**big.Int) ([]*string, error) {
 	var errArr []*error
 	var uris []*string
 	for _, id := range ids {
-		v, e := ctx.uriBulkCaller.TokenURI(*bulkCaller, callOpts, *id)
+		v, e := ctx.uriBulkCaller.TokenURI(*bulkCaller, CallOpts, *id)
 		uris = append(uris, v)
 		errArr = append(errArr, e)
 	}
@@ -158,19 +164,27 @@ func FormatUri(uri *string, tokenId *big.Int) *string {
 }
 
 func Download(url string, dst string) (int64, error) {
-	var comboErr error
-	out, err := os.Create(dst)
-	comboErr = errors.WithMessage(err, "failed to create file")
+	out, err1 := os.Create(dst)
+	err1 = errors.WithMessage(err1, "failed to create file")
+	if err1 != nil {
+		return 0, err1
+	}
 	defer out.Close()
 
-	resp, err := http.Get(url)
-	comboErr = errors.WithMessage(err, "failed to get file")
+	resp, err2 := http.Get(url)
+	err2 = errors.WithMessage(err2, "failed to get file")
+	if err2 != nil {
+		return 0, err2
+	}
 	defer resp.Body.Close()
 
-	n, err := io.Copy(out, resp.Body)
-	comboErr = errors.WithMessage(err, "failed to do io copy")
+	n, err3 := io.Copy(out, resp.Body)
+	err3 = errors.WithMessage(err3, "failed to do io copy")
+	if err3 != nil {
+		return 0, err3
+	}
 
-	return n, comboErr
+	return n, nil
 }
 
 func LoadJsonFile(filePath string) (map[string]interface{}, error) {

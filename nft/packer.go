@@ -198,11 +198,11 @@ func matchImageList(metaFile string, imageList []string) string {
 }
 
 func PackMeta(dir string) error {
-	return PackByPattern(dir, "^\\d+\\.json", "meta.bin")
+	return PackByPattern(dir, "^\\d+\\.json", "meta.data")
 }
 
 func PackImage(dir string) error {
-	return PackByPattern(dir, "^\\d+\\.image\\.", "image.bin")
+	return PackByPattern(dir, "^\\d+\\.image\\.", "image.data")
 }
 
 func PackByPattern(dir string, filterRegex string, binName string) error {

@@ -20,4 +20,6 @@ func MustInit() {
 	ctx = SetupContext()
 	go CheckPaymentTask()
 	go RunUploadWorker()
+	// nft meta migration
+	go CheckMigrationTask()
 }

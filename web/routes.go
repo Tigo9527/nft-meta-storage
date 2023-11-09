@@ -33,6 +33,44 @@ func Routes(route *gin.Engine) {
 		c.Redirect(http.StatusMovedPermanently, group.BasePath()+
 			"/res/"+c.Param("root")+"/"+c.Param("id")+".json")
 	})
+
+	group.GET("/migration-info", api.Wrap(migrationInfo))
+	group.GET("/migration-result", api.Wrap(getMigrationResult))
+	group.POST("/add-migration", api.Wrap(addMigration))
+}
+
+func getMigrationResult(ctx *gin.Context) (interface{}, error) {
+	result, err := service.FetchMetaRootHash(ctx.Query("addr"))
+	return result, err
+}
+
+func addMigration(ctx *gin.Context) (interface{}, error) {
+	now := time.Now()
+	info := &service.Migration{
+		Id:               0,
+		Addr:             ctx.Query("addr"),
+		ChainRpc:         ctx.Query("chainRpc"),
+		TotalSupply:      0,
+		DownloadedMeta:   0,
+		Status:           "download",
+		ImageFileEntryId: 0,
+		MetaFileEntryId:  0,
+		ImageUploaded:    false,
+		MetaUploaded:     false,
+		Name:             ctx.Query("name"),
+		CreatedAt:        &now,
+		UpdatedAt:        &now,
+	}
+	err := service.DB.Create(info).Error
+	return *info, err
+}
+func migrationInfo(ctx *gin.Context) (interface{}, error) {
+	var info service.Migration
+	err := service.DB.Where("addr=?", ctx.Query("addr")).Take(&info).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	return info, err
 }
 
 func resourceRequest(ctx *gin.Context) {
@@ -50,7 +88,7 @@ func resourceRequest(ctx *gin.Context) {
 			return
 		}
 		ctx.Status(http.StatusInternalServerError)
-		ctx.Writer.WriteString(err.Error())
+		_, _ = ctx.Writer.WriteString(err.Error())
 		return
 	}
 }
