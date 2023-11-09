@@ -30,6 +30,11 @@ type PackInfo struct {
 	Entries []*FileEntry `json:"entries"`
 }
 
+var (
+	ImageData = "image.data"
+	MetaData  = "meta.data"
+)
+
 func (packInfo *PackInfo) FindEntry(name string) *FileEntry {
 	for _, f := range packInfo.Entries {
 		if f.Name == name {
@@ -146,7 +151,7 @@ func ReplaceImageInMeta(dir string, urlPrefix string) error {
 		return errors.WithMessage(err, "failed to filter image list")
 	}
 
-	dataPath := fmt.Sprintf("%s%cimage.data", dir, os.PathSeparator)
+	dataPath := fmt.Sprintf("%s%c%s", dir, os.PathSeparator, ImageData)
 	wrappedFile, err := file.Open(dataPath)
 	if err != nil {
 		return errors.WithMessage(err, "failed to open "+dataPath)
@@ -199,11 +204,11 @@ func matchImageList(metaFile string, imageList []string) string {
 }
 
 func PackMeta(dir string) error {
-	return PackByPattern(dir, "^\\d+\\.json", "meta.data")
+	return PackByPattern(dir, "^\\d+\\.json", MetaData)
 }
 
 func PackImage(dir string) error {
-	return PackByPattern(dir, "^\\d+\\.image\\.", "image.data")
+	return PackByPattern(dir, "^\\d+\\.image\\.", ImageData)
 }
 
 func PackByPattern(dir string, filterRegex string, binName string) error {

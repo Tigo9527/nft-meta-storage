@@ -76,7 +76,7 @@ func CheckMigrationTask() {
 			}
 			break
 		case db_models.MigrationStatusUploadImage:
-			filepath := fmt.Sprintf("./download/%s/image.data", bean.Addr)
+			filepath := fmt.Sprintf("./download/%s/%s", bean.Addr, nft.ImageData)
 			fileId, err_ := addUploadTask(filepath)
 			err = err_
 			if err == nil {
@@ -90,7 +90,7 @@ func CheckMigrationTask() {
 			err = checkUpload(&bean, db_models.MigrationStatusUploadMeta)
 			break
 		case db_models.MigrationStatusUploadMeta:
-			filepath := fmt.Sprintf("./download/%s/meta.data", bean.Addr)
+			filepath := fmt.Sprintf("./download/%s/%s", bean.Addr, nft.MetaData)
 			fileId, err_ := addUploadTask(filepath)
 			err = err_
 			if err == nil {
