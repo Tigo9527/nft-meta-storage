@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"nft.house/nft"
 	"nft.house/service"
+	"nft.house/service/db_models"
 	"os"
 	"time"
 )
@@ -46,7 +47,7 @@ func getMigrationResult(ctx *gin.Context) (interface{}, error) {
 
 func addMigration(ctx *gin.Context) (interface{}, error) {
 	now := time.Now()
-	info := &service.Migration{
+	info := &db_models.Migration{
 		Id:               0,
 		Addr:             ctx.Query("addr"),
 		ChainRpc:         ctx.Query("chainRpc"),
@@ -65,7 +66,7 @@ func addMigration(ctx *gin.Context) (interface{}, error) {
 	return *info, err
 }
 func migrationInfo(ctx *gin.Context) (interface{}, error) {
-	var info service.Migration
+	var info db_models.Migration
 	err := service.DB.Where("addr=?", ctx.Query("addr")).Take(&info).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
@@ -142,7 +143,7 @@ func nftStore(ctx *gin.Context) (interface{}, error) {
 		return nil, BuildError("can not unmarshal `meta` to a json")
 	}
 
-	var fileEntries []*service.FileEntry
+	var fileEntries []*db_models.FileEntry
 	logrus.Debug("form file count ", len(mForm.File))
 	for field, f := range mForm.File {
 		if len(f) != 1 {
@@ -172,7 +173,7 @@ func nftStore(ctx *gin.Context) (interface{}, error) {
 		}
 		result[field] = filePath
 
-		fileEntries = append(fileEntries, &service.FileEntry{
+		fileEntries = append(fileEntries, &db_models.FileEntry{
 			Id:        0,
 			UserId:    ctx.GetInt64(CtxUserId),
 			Name:      filePath,
@@ -189,9 +190,9 @@ func nftStore(ctx *gin.Context) (interface{}, error) {
 			if err != nil {
 				return errors.WithMessage(err, "Failed to save file entries in DB")
 			}
-			var txArr []*service.FileTxQueue
+			var txArr []*db_models.FileTxQueue
 			for _, entry := range fileEntries {
-				txArr = append(txArr, &service.FileTxQueue{
+				txArr = append(txArr, &db_models.FileTxQueue{
 					Id:        0, // auto increment
 					CreatedAt: entry.CreatedAt,
 					FileId:    entry.Id,

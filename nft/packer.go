@@ -146,9 +146,10 @@ func ReplaceImageInMeta(dir string, urlPrefix string) error {
 		return errors.WithMessage(err, "failed to filter image list")
 	}
 
-	wrappedFile, err := file.Open(fmt.Sprintf("%s%cimage.bin", dir, os.PathSeparator))
+	dataPath := fmt.Sprintf("%s%cimage.data", dir, os.PathSeparator)
+	wrappedFile, err := file.Open(dataPath)
 	if err != nil {
-		return errors.WithMessage(err, "failed to open pack.bin")
+		return errors.WithMessage(err, "failed to open "+dataPath)
 	}
 	tree, err := wrappedFile.MerkleTree()
 	if err != nil {

@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"github.com/Conflux-Chain/go-conflux-util/config"
+	"nft.house/tools"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -29,7 +30,15 @@ func Execute() {
 	}
 }
 
+var gormGenCmd = &cobra.Command{
+	Use: "gormGen",
+	Run: func(cmd *cobra.Command, args []string) {
+		tools.GormGen()
+	},
+}
+
 func init() {
+	rootCmd.AddCommand(gormGenCmd)
 	// Here you will define your flags and configuration settings.
 	// Cobra supports persistent flags, which, if defined here,
 	// will be global for your application.

@@ -8,6 +8,8 @@ import (
 	"gorm.io/gorm"
 	"math/big"
 	"nft.house/nft"
+	"nft.house/service/db_models"
+	"nft.house/service/query"
 	"os"
 	"strings"
 	"time"
@@ -15,13 +17,13 @@ import (
 
 func CheckMigrationTask() {
 	for {
-		lastId, err := GetIntConfig(ConfigDownloadingID, 0)
+		lastId, err := GetIntConfig(db_models.ConfigDownloadingID, 0)
 		if err != nil {
 			logrus.WithError(err).Error("GetIntConfig failed")
 			time.Sleep(10 * time.Second)
 			continue
 		}
-		var bean Migration
+		var bean db_models.Migration
 		err = DB.Where("id >= ?", lastId).
 			Order("id asc").
 			Take(&bean).Error
@@ -37,7 +39,7 @@ func CheckMigrationTask() {
 		}
 
 		if int(bean.Id) != lastId {
-			err = SaveIntConfig(ConfigDownloadingID, int(bean.Id))
+			err = SaveIntConfig(db_models.ConfigDownloadingID, int(bean.Id))
 			if err != nil {
 				logrus.WithError(err).Error("failed to SaveIntConfig")
 				time.Sleep(10 * time.Second)
@@ -45,49 +47,64 @@ func CheckMigrationTask() {
 			}
 		}
 		switch bean.Status {
-		case MigrationStatusDownload:
+		case db_models.MigrationStatusDownload:
 			err = download(&bean)
 			break
-		case MigrationStatusPackImage:
+		case db_models.MigrationStatusPackImage:
 			err = nft.PackImage(fmt.Sprintf("./download/%s", bean.Addr))
 			if err == nil {
-				err = DB.Model(bean).Update("status", MigrationStatusPackMeta).Error
+				err = DB.Model(bean).Update("status", db_models.MigrationStatusPackMeta).Error
 			}
 			break
-		case MigrationStatusPackMeta:
-			err = nft.PackMeta(fmt.Sprintf("./download/%s", bean.Addr))
+		case db_models.MigrationStatusPackMeta:
+			imgGatewayConf, err_ := query.Config.Where(query.Config.Name.Eq(db_models.ConfigImageGateway)).Take()
+			err = err_
+			if IsNotFound(err) || imgGatewayConf == nil || imgGatewayConf.Value == "" {
+				err = fmt.Errorf("must config image gateway")
+			}
+			if err != nil {
+				break
+			}
+			nftDir := fmt.Sprintf("./download/%s", bean.Addr)
+			err = nft.ReplaceImageInMeta(nftDir, imgGatewayConf.Value)
+			if err != nil {
+				break
+			}
+			err = nft.PackMeta(nftDir)
 			if err == nil {
-				err = DB.Model(bean).Update("status", MigrationStatusUploadImage).Error
+				err = DB.Model(bean).Update("status", db_models.MigrationStatusUploadImage).Error
 			}
 			break
-		case MigrationStatusUploadImage:
+		case db_models.MigrationStatusUploadImage:
 			filepath := fmt.Sprintf("./download/%s/image.data", bean.Addr)
-			fileId, err := addUploadTask(filepath)
+			fileId, err_ := addUploadTask(filepath)
+			err = err_
 			if err == nil {
 				err = DB.Model(bean).
-					Update("status", MigrationStatusWaitUploadingImage).
+					Update("status", db_models.MigrationStatusWaitUploadingImage).
 					Update("image_file_entry_id", fileId).
 					Error
 			}
 			break
-		case MigrationStatusWaitUploadingImage:
-			err = checkUpload(&bean, MigrationStatusUploadMeta)
+		case db_models.MigrationStatusWaitUploadingImage:
+			err = checkUpload(&bean, db_models.MigrationStatusUploadMeta)
 			break
-		case MigrationStatusUploadMeta:
+		case db_models.MigrationStatusUploadMeta:
 			filepath := fmt.Sprintf("./download/%s/meta.data", bean.Addr)
-			fileId, err := addUploadTask(filepath)
+			fileId, err_ := addUploadTask(filepath)
+			err = err_
 			if err == nil {
 				err = DB.Model(bean).
-					Update("status", MigrationStatusWaitUploadingMeta).
+					Update("status", db_models.MigrationStatusWaitUploadingMeta).
 					Update("meta_file_entry_id", fileId).
 					Error
 			}
 			break
-		case MigrationStatusWaitUploadingMeta:
-			err = checkUpload(&bean, MigrationStatusFinish)
+		case db_models.MigrationStatusWaitUploadingMeta:
+			err = checkUpload(&bean, db_models.MigrationStatusFinished)
 			break
-		case MigrationStatusFinish:
-			err = SaveIntConfig(ConfigDownloadingID, int(bean.Id+1))
+		case db_models.MigrationStatusFinished:
+			err = SaveIntConfig(db_models.ConfigDownloadingID, int(bean.Id+1))
 			break
 		default:
 			err = fmt.Errorf("unknow status %s", bean.Status)
@@ -101,15 +118,15 @@ func CheckMigrationTask() {
 	}
 }
 
-func checkUpload(bean *Migration, next string) error {
-	isImage := next == MigrationStatusUploadMeta
+func checkUpload(bean *db_models.Migration, next string) error {
+	isImage := next == db_models.MigrationStatusUploadMeta
 	fileEntryId := bean.ImageFileEntryId
 	uploadedKey := "image_uploaded"
 	if !isImage {
 		fileEntryId = bean.MetaFileEntryId
 		uploadedKey = "meta_uploaded"
 	}
-	var fileEntry FileEntry
+	var fileEntry db_models.FileEntry
 	err := DB.Where("id=?", fileEntryId).Take(&fileEntry).Error
 	if err != nil {
 		if IsNotFound(err) {
@@ -121,7 +138,7 @@ func checkUpload(bean *Migration, next string) error {
 		err = fmt.Errorf("waiting for create root index, file id %d", fileEntryId)
 		return err
 	}
-	var rootIndex RootIndex
+	var rootIndex db_models.RootIndex
 	err = DB.Where("id=?", fileEntry.RootId).Take(&rootIndex).Error
 	if err != nil {
 		if IsNotFound(err) {
@@ -151,7 +168,7 @@ func addUploadTask(filepath string) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
-	fileEntry := FileEntry{
+	fileEntry := db_models.FileEntry{
 		Id:        0,
 		UserId:    0,
 		Name:      filepath,
@@ -163,7 +180,7 @@ func addUploadTask(filepath string) (int64, error) {
 	err = DB.Transaction(func(tx *gorm.DB) error {
 		dbE := tx.Create(&fileEntry).Error
 		if dbE == nil {
-			dbE = tx.Create(&FileTxQueue{
+			dbE = tx.Create(&db_models.FileTxQueue{
 				Id:        0,
 				FileId:    fileEntry.Id,
 				CreatedAt: nil,
@@ -174,7 +191,7 @@ func addUploadTask(filepath string) (int64, error) {
 	return fileEntry.Id, err
 }
 
-func download(bean *Migration) error {
+func download(bean *db_models.Migration) error {
 	logrus.Debug("download ", bean.Addr)
 	err := nft.Setup(bean.ChainRpc)
 	if err != nil {
@@ -203,7 +220,7 @@ func download(bean *Migration) error {
 		log := logrus.WithFields(logrus.Fields{"contract": bean.Addr, "name": bean.Name})
 		if bean.DownloadedMeta >= bean.TotalSupply {
 			logrus.Infof("%d >= %d , stop downloading\n", bean.DownloadedMeta, bean.TotalSupply)
-			err = DB.Model(bean).Update("status", MigrationStatusPackImage).Error
+			err = DB.Model(bean).Update("status", db_models.MigrationStatusPackImage).Error
 			if err != nil {
 				return errors.WithMessage(err, "failed to update status")
 			}

@@ -1,12 +1,7 @@
-package service
+package db_models
 
 import (
-	"gorm.io/gorm"
 	"time"
-)
-
-var (
-	DB *gorm.DB
 )
 
 var MigrationModels = []interface{}{
@@ -21,6 +16,7 @@ var MigrationModels = []interface{}{
 }
 
 const ConfigDownloadingID = "downloading"
+const ConfigImageGateway = "imageGateway"
 
 type Config struct {
 	Name  string `json:"name" gorm:"primary_key"`
@@ -34,7 +30,7 @@ const MigrationStatusUploadImage = "uploadImage"
 const MigrationStatusWaitUploadingImage = "waitUploadingImage"
 const MigrationStatusUploadMeta = "uploadMeta"
 const MigrationStatusWaitUploadingMeta = "waitUploadingMeta"
-const MigrationStatusFinish = "finish"
+const MigrationStatusFinished = "finished"
 
 type Migration struct {
 	Id               int64      `json:"id" gorm:"primary_key"`

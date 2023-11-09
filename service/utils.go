@@ -5,11 +5,12 @@ import (
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
+	"nft.house/service/db_models"
 	"strconv"
 )
 
 func GetIntConfig(name string, defaultV int) (int, error) {
-	var bean Config
+	var bean db_models.Config
 	err := DB.Where("name=?", name).Take(&bean).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return defaultV, nil
@@ -26,7 +27,7 @@ func SaveIntConfig(name string, v int) error {
 	err := DB.Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "name"}},
 		DoUpdates: clause.Assignments(map[string]interface{}{"value": strV}),
-	}).Create(&Config{Name: name, Value: strV}).Error
+	}).Create(&db_models.Config{Name: name, Value: strV}).Error
 	if err != nil {
 		return errors.WithMessage(err, "SaveIntConfig")
 	}
@@ -60,7 +61,7 @@ root_indices.tx_hash AS tx_hash
 `
 	var bean MigrationInfo
 	ptr := &bean
-	err := DB.Debug().Table("migrations").Select(fields).
+	err := DB.Table("migrations").Select(fields).
 		Joins("left join file_entries on migrations.meta_file_entry_id=file_entries.id").
 		Joins("left join root_indices on file_entries.root_id=root_indices.id").
 		Where("migrations.addr=?", addr).

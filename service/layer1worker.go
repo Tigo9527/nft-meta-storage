@@ -5,6 +5,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
+	"nft.house/service/db_models"
 	"time"
 )
 
@@ -23,7 +24,7 @@ func CheckPaymentTask() {
 }
 
 func CheckById(id int64) {
-	var txTask FileTxQueue
+	var txTask db_models.FileTxQueue
 	err := DB.Where("id=?", id).Take(&txTask).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -35,8 +36,8 @@ func CheckById(id int64) {
 	CheckByTask(&txTask)
 }
 
-func CheckByTask(txTask *FileTxQueue) {
-	var fileEntry FileEntry
+func CheckByTask(txTask *db_models.FileTxQueue) {
+	var fileEntry db_models.FileEntry
 	err := DB.Where("id=?", txTask.FileId).Take(&fileEntry).Error
 	if err != nil {
 		logrus.WithFields(logrus.Fields{
@@ -49,7 +50,7 @@ func CheckByTask(txTask *FileTxQueue) {
 		createRoot(&fileEntry, txTask)
 		return
 	}
-	var rootIndex RootIndex
+	var rootIndex db_models.RootIndex
 	err = DB.Where("id=?", fileEntry.RootId).Take(&rootIndex).Error
 	if err != nil {
 		// must find if rootId is set on file entry
@@ -107,10 +108,10 @@ func CheckByTask(txTask *FileTxQueue) {
 		if err != nil {
 			return errors.WithMessage(err, "Failed to delete task ")
 		}
-		err = DB.Create(&FileStoreQueue{
+		err = DB.Create(&db_models.FileStoreQueue{
 			Id:        fileEntry.Id,
 			RootId:    rootIndex.Id,
-			Step:      UploadStepUploading,
+			Step:      db_models.UploadStepUploading,
 			CreatedAt: &now,
 		}).Error
 		if err != nil {
@@ -129,7 +130,7 @@ func CheckByTask(txTask *FileTxQueue) {
 	}).Info("created storage task")
 }
 
-func createRoot(entry *FileEntry, task *FileTxQueue) {
+func createRoot(entry *db_models.FileEntry, task *db_models.FileTxQueue) {
 	wrappedFile, openErr := file.Open(entry.Name)
 	if openErr != nil {
 		logrus.WithError(openErr).Error("failed to open file")
@@ -141,9 +142,8 @@ func createRoot(entry *FileEntry, task *FileTxQueue) {
 		return
 	}
 	root := tree.Root()
-	var rootIndex RootIndex
+	var rootIndex db_models.RootIndex
 	err := DB.Where("root=?", root.Hex()).Take(&rootIndex).Error
-	logrus.Debug(" bean ", rootIndex, " error ", err)
 	if err != nil {
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
 			logrus.WithFields(logrus.Fields{
@@ -174,7 +174,7 @@ func createRoot(entry *FileEntry, task *FileTxQueue) {
 		return
 	}
 	err = DB.Transaction(func(tx *gorm.DB) error {
-		rootIndex = RootIndex{
+		rootIndex = db_models.RootIndex{
 			Id:         0,
 			Root:       root.Hex(),
 			FileId:     entry.Id,
@@ -206,7 +206,7 @@ func createRoot(entry *FileEntry, task *FileTxQueue) {
 	}).Info("New root index created")
 }
 
-func moveTaskToTail(tx *gorm.DB, task *FileTxQueue) error {
+func moveTaskToTail(tx *gorm.DB, task *db_models.FileTxQueue) error {
 	err := tx.Delete(task).Error
 	if err != nil {
 		return errors.WithMessage(err, "Failed to delete old task")
@@ -222,7 +222,7 @@ func moveTaskToTail(tx *gorm.DB, task *FileTxQueue) error {
 }
 
 func CheckByOrderInDB() {
-	var bean FileTxQueue
+	var bean db_models.FileTxQueue
 	err := DB.Order("id asc").Take(&bean).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {

@@ -13,6 +13,7 @@ import (
 	"gorm.io/gorm"
 	"io"
 	"nft.house/nft"
+	"nft.house/service/db_models"
 	"time"
 )
 
@@ -66,7 +67,7 @@ func SetupContext() *StorageContext {
 }
 
 func CheckUploadQueue(ctx *StorageContext) {
-	var task FileStoreQueue
+	var task db_models.FileStoreQueue
 	err := DB.Order("id asc").Take(&task).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -78,18 +79,18 @@ func CheckUploadQueue(ctx *StorageContext) {
 	runTask(&task, ctx)
 }
 
-func runTask(task *FileStoreQueue, ctx *StorageContext) {
+func runTask(task *db_models.FileStoreQueue, ctx *StorageContext) {
 	logWithFields := logrus.WithFields(logrus.Fields{
 		"taskId": task.Id, "rootId": task.RootId,
 	})
-	var rootIndex RootIndex
+	var rootIndex db_models.RootIndex
 	err := DB.Where("id=?", task.RootId).Take(&rootIndex).Error
 	if err != nil {
 		logWithFields.WithError(err).Error("failed to upload, root index error")
 		return
 	}
-	if task.Step == UploadStepUploading {
-		var fileEntry FileEntry
+	if task.Step == db_models.UploadStepUploading {
+		var fileEntry db_models.FileEntry
 		err = DB.Where("id=?", rootIndex.FileId).Take(&fileEntry).Error
 		if err != nil {
 			logWithFields.WithError(err).Error("failed to upload, file entry error")
@@ -135,14 +136,14 @@ func runTask(task *FileStoreQueue, ctx *StorageContext) {
 	}
 }
 
-func recreateTask(task *FileStoreQueue) error {
+func recreateTask(task *db_models.FileStoreQueue) error {
 	return DB.Transaction(func(tx *gorm.DB) error {
 		err := tx.Delete(task).Error
 		if err != nil {
 			return errors.WithMessage(err, "uploaded: failed to delete task")
 		}
 		task.Id = 0
-		task.Step = UploadStepWaitConfirm
+		task.Step = db_models.UploadStepWaitConfirm
 		err = tx.Create(task).Error
 		if err != nil {
 			return errors.WithMessage(err, "uploaded: failed to recreate task")
