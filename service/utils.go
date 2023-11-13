@@ -57,6 +57,7 @@ migrations.downloaded_meta,
 migrations.total_supply, 
 status, 
 root_indices.root AS root, 
+CASE WHEN root_indices.uploaded_at IS NULL THEN 0 ELSE 1 END meta_uploaded,
 root_indices.tx_hash AS tx_hash 
 `
 	var bean MigrationInfo

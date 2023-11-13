@@ -34,7 +34,7 @@ const MigrationStatusFinished = "finished"
 
 type Migration struct {
 	Id               int64      `json:"id" gorm:"primary_key"`
-	Addr             string     `json:"addr" binding:"required" gorm:"type: varchar(128) not null unique"`
+	Addr             string     `json:"addr" binding:"required" gorm:"unique:, type:varchar(128) not null"`
 	ChainRpc         string     `json:"chainRpc" binding:"" gorm:"type: varchar(300) not null"`
 	TotalSupply      int        `json:"totalSupply" gorm:""`
 	DownloadedMeta   int        `json:"downloadedMeta" gorm:""`
@@ -63,7 +63,7 @@ type RootIndex struct {
 	// it's file entry id
 	Id         int64      `json:"id" gorm:"primary_key"`
 	FileId     int64      `json:"file_id" gorm:"not null"`
-	Root       string     `json:"root" binding:"" gorm:"type:char(66) unique not null"`
+	Root       string     `json:"root" binding:"" gorm:"unique:, type:char(66) not null"`
 	TxHash     string     `json:"tx_hash" binding:"" gorm:"type:char(66)"`
 	PaidAt     *time.Time `json:"paid_at,string,omitempty"`
 	UploadedAt *time.Time `json:"uploaded_at,string,omitempty"`
@@ -91,8 +91,8 @@ type FileStoreQueue struct {
 
 type User struct {
 	Id        int64      `json:"id" gorm:"primary_key"`
-	Name      string     `json:"name" binding:"required" gorm:"unique,not null"`
-	Token     string     `json:"token" binding:"required" gorm:"type:varchar(66) unique not null"`
+	Name      string     `json:"name" binding:"required" gorm:"unique:, type: varchar(128) not null"`
+	Token     string     `json:"token" binding:"required" gorm:"unique:, type:varchar(66) not null"`
 	CreatedAt *time.Time `json:"created_at,string,omitempty"`
 	UpdatedAt *time.Time `json:"updated_at,string,omitempty"`
 }

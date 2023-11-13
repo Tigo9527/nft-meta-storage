@@ -28,8 +28,8 @@ func CheckMigrationTask() {
 			Order("id asc").
 			Take(&bean).Error
 		if IsNotFound(err) {
-			logrus.Debug("no more downloading task")
-			time.Sleep(10 * time.Second)
+			//logrus.Debug("no more downloading task")
+			time.Sleep(1 * time.Second)
 			continue
 		}
 		if err != nil {
@@ -212,6 +212,20 @@ func download(bean *db_models.Migration) error {
 		}
 	}
 	saveAtDir := fmt.Sprintf("./download/%s", bean.Addr)
+	if _, err = os.Stat(saveAtDir); err != nil {
+		if os.IsNotExist(err) {
+			// that's ok
+		} else {
+			// permission or what ever error
+			return err
+		}
+	} else {
+		// delete it
+		err = os.RemoveAll(saveAtDir)
+		if err != nil {
+			return err
+		}
+	}
 	err = os.MkdirAll(saveAtDir, 0755)
 	if err != nil {
 		return errors.WithMessage(err, "mkdirAll")
@@ -266,6 +280,16 @@ func download(bean *db_models.Migration) error {
 			return errors.WithMessage(err, "failed to update DownloadedMeta count")
 		}
 		log.Debug("downloaded ", bean.DownloadedMeta)
+
+		// check status changing by external
+		m := query.Migration
+		newBean, err := m.Where(m.Addr.Eq(bean.Addr)).Select(m.Status).Take()
+		if err != nil {
+			return err
+		}
+		if newBean.Status != db_models.MigrationStatusDownload {
+			break
+		}
 	}
 	return nil
 }

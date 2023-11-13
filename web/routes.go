@@ -13,7 +13,9 @@ import (
 	"nft.house/nft"
 	"nft.house/service"
 	"nft.house/service/db_models"
+	"nft.house/service/query"
 	"os"
+	"strconv"
 	"time"
 )
 
@@ -38,8 +40,65 @@ func Routes(route *gin.Engine) {
 	group.GET("/migration-info", api.Wrap(migrationInfo))
 	group.GET("/migration-result", api.Wrap(getMigrationResult))
 	group.POST("/add-migration", api.Wrap(addMigration))
+	group.GET("/delete-migration", api.Wrap(deleteMigration))
+	group.GET("/abort-migration", api.Wrap(abortMigration))
+	group.GET("/skip-download", api.Wrap(skipDownload))
+	group.GET("/abort-uploading", api.Wrap(abortUploading))
 }
 
+// This is not a normal operation, but only for a test.
+func deleteMigration(ctx *gin.Context) (interface{}, error) {
+	m := query.Migration
+	info, err := m.Where(m.Addr.Eq(ctx.Query("addr"))).Delete()
+	return info, err
+}
+func abortMigration(ctx *gin.Context) (interface{}, error) {
+	m := query.Migration
+	bean, err := m.Where(m.Addr.Eq(ctx.Query("addr"))).Take()
+	if err != nil {
+		return nil, err
+	}
+	if bean == nil {
+		return nil, fmt.Errorf("not found")
+	}
+	ok := false
+	currentUploadingId := service.CurrentFileId.Load()
+	if bean.ImageFileEntryId > 0 && currentUploadingId == int64(bean.ImageFileEntryId) {
+		service.AbortFileId.Store(currentUploadingId)
+		ok = true
+	} else if bean.MetaFileEntryId > 0 && currentUploadingId == int64(bean.MetaFileEntryId) {
+		ok = true
+		service.AbortFileId.Store(currentUploadingId)
+	}
+	if !ok {
+		return nil, fmt.Errorf("task is not uploading right now")
+	}
+	_, _ = m.Delete(bean)
+
+	//fq := query.FileStoreQueue
+	//info, err := fq.Where(fq.Id.In(int64(bean.MetaFileEntryId), int64(bean.ImageFileEntryId))).Delete()
+	//return info, err
+
+	return "submitted", nil
+}
+func abortUploading(ctx *gin.Context) (interface{}, error) {
+	i, err := strconv.ParseInt(ctx.Query("id"), 10, 64)
+	if err == nil {
+		return nil, err
+	}
+	service.AbortFileId.Store(i)
+	return "OK", nil
+}
+func skipDownload(ctx *gin.Context) (interface{}, error) {
+	q := query.Migration
+	update, err := q.Debug().Where(q.Addr.Eq(ctx.Query("addr"))).
+		Where(q.Status.Eq(db_models.MigrationStatusDownload)).
+		Update(q.Status, db_models.MigrationStatusPackImage)
+	if err != nil {
+		return nil, err
+	}
+	return update.RowsAffected, update.Error
+}
 func getMigrationResult(ctx *gin.Context) (interface{}, error) {
 	result, err := service.FetchMetaRootHash(ctx.Query("addr"))
 	return result, err

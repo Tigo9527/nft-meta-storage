@@ -158,18 +158,18 @@ func createRoot(entry *db_models.FileEntry, task *db_models.FileTxQueue) {
 		}).Info("root already exists")
 
 		err = DB.Transaction(func(tx *gorm.DB) error {
-			err = tx.Delete(task).Error
-			if err != nil {
-				return errors.WithMessage(err, "Failed to Delete task")
-			}
+			//err = tx.Delete(task).Error
+			//if err != nil {
+			//	return errors.WithMessage(err, "Failed to Delete task")
+			//}
 			err = tx.Model(&entry).Update("root_id", rootIndex.Id).Error
 			if err != nil {
 				return errors.WithMessage(err, "Failed to update root id on fileEntry")
 			}
-			return nil
+			return moveTaskToTail(tx, task)
 		})
 		if err != nil {
-			logrus.WithError(err).Error("Failed to delete task")
+			logrus.WithError(err).Error("Failed to append task")
 		}
 		return
 	}

@@ -6,18 +6,24 @@ import (
 	"github.com/Conflux-Chain/neurahive-client/file"
 	"github.com/Conflux-Chain/neurahive-client/node"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/openweb3/go-rpc-provider/provider_wrapper"
 	"github.com/openweb3/web3go"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	"golang.org/x/net/context"
 	"gorm.io/gorm"
 	"io"
 	"nft.house/nft"
 	"nft.house/service/db_models"
+	"sync/atomic"
 	"time"
 )
 
 var storeTimer = time.NewTicker(time.Second)
+var AbortFileId atomic.Int64
+var CurrentFileId atomic.Int64
+var abortError = errors.New("aborted")
 
 type StorageContext struct {
 	Client   *web3go.Client
@@ -54,6 +60,18 @@ func SetupContext() *StorageContext {
 	}).Info("chain id ", *chainId, "")
 
 	nodeInst := node.MustNewClient(storageNode)
+	nodeInst.MiddlewarableProvider.HookCallContext(func(f providers.CallContextFunc) providers.CallContextFunc {
+		return func(ctx context.Context, resultPtr interface{}, method string, args ...interface{}) error {
+			if method == "nrhv_uploadSegment" {
+				if CurrentFileId.Load() == AbortFileId.Load() {
+					return abortError
+				}
+			}
+			err := f(ctx, resultPtr, method, args...)
+
+			return err
+		}
+	})
 	logrus.Info("storage node ", storageNode)
 	logrus.Info("flow contract ", contractStr)
 
@@ -97,13 +115,21 @@ func runTask(task *db_models.FileStoreQueue, ctx *StorageContext) {
 			return
 		}
 		logrus.Debug("upload to storage: ", fileEntry.Name)
+		CurrentFileId.Store(task.Id)
+		defer func() { CurrentFileId.Store(0) }()
 		err = ctx.uploader.UploadStep(fileEntry.Name)
 		if err != nil {
+			if errors.Is(err, abortError) {
+				logrus.Warnf("abrot upload task %d", AbortFileId.Load())
+				DB.Delete(task)
+				AbortFileId.Store(0)
+				return
+			}
 			logWithFields.WithError(err).Error("failed to execute uploading")
 			return
 		}
 		logrus.Debug("uploaded to node ", ctx.Storage.URL())
-		err = recreateTask(task)
+		err = recreateTaskWaitConfirm(task)
 		if err != nil {
 			logWithFields.WithError(err).Error("failed to cleanup ")
 			return
@@ -116,7 +142,7 @@ func runTask(task *db_models.FileStoreQueue, ctx *StorageContext) {
 		if info == nil || !info.Finalized {
 			logWithFields.Debug("info is nil or not finalized ", info,
 				"root ", rootIndex.Root, " hash ", common.HexToHash(rootIndex.Root))
-			err = recreateTask(task)
+			err = recreateTaskWaitConfirm(task)
 			if err != nil {
 				logWithFields.WithError(err).Error(err, "waitConfirm: failed to recreate task")
 				return
@@ -136,7 +162,7 @@ func runTask(task *db_models.FileStoreQueue, ctx *StorageContext) {
 	}
 }
 
-func recreateTask(task *db_models.FileStoreQueue) error {
+func recreateTaskWaitConfirm(task *db_models.FileStoreQueue) error {
 	return DB.Transaction(func(tx *gorm.DB) error {
 		err := tx.Delete(task).Error
 		if err != nil {
