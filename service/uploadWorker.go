@@ -16,6 +16,7 @@ import (
 	"io"
 	"nft.house/nft"
 	"nft.house/service/db_models"
+	"strings"
 	"sync/atomic"
 	"time"
 )
@@ -124,9 +125,10 @@ func runTask(task *db_models.FileStoreQueue, ctx *StorageContext) {
 				DB.Delete(task)
 				AbortFileId.Store(0)
 				return
+			} else if strings.Index(err.Error(), "already uploaded and finalized") < 0 {
+				logWithFields.WithError(err).Error("failed to execute uploading")
+				return
 			}
-			logWithFields.WithError(err).Error("failed to execute uploading")
-			return
 		}
 		logrus.Debug("uploaded to node ", ctx.Storage.URL())
 		err = recreateTaskWaitConfirm(task)
