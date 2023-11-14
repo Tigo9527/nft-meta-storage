@@ -49,8 +49,15 @@ func Routes(route *gin.Engine) {
 // This is not a normal operation, but only for a test.
 func deleteMigration(ctx *gin.Context) (interface{}, error) {
 	m := query.Migration
-	info, err := m.Where(m.Addr.Eq(ctx.Query("addr"))).Delete()
-	return info, err
+	bean, err := m.Where(m.Addr.Eq(ctx.Query("addr"))).Take()
+	if bean != nil {
+		_, err = m.Delete(bean)
+		_ = query.DeleteUrlCache(bean.Id)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return "ok", nil
 }
 func abortMigration(ctx *gin.Context) (interface{}, error) {
 	m := query.Migration
@@ -74,6 +81,7 @@ func abortMigration(ctx *gin.Context) (interface{}, error) {
 		return nil, fmt.Errorf("task is not uploading right now")
 	}
 	_, _ = m.Delete(bean)
+	_ = query.DeleteUrlCache(bean.Id)
 
 	//fq := query.FileStoreQueue
 	//info, err := fq.Where(fq.Id.In(int64(bean.MetaFileEntryId), int64(bean.ImageFileEntryId))).Delete()

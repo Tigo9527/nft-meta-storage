@@ -16,3 +16,9 @@ func GetCachedUrl(migrationId int64, url string) (string, error) {
 	}
 	return bean.LocalName, nil
 }
+
+func DeleteUrlCache(migrationId int64) error {
+	u := UrlEntry
+	_, err := u.Where(u.MigrationId.Eq(migrationId)).Delete()
+	return err
+}
