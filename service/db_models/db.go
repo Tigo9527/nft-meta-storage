@@ -13,13 +13,14 @@ var MigrationModels = []interface{}{
 
 	&Migration{},
 	&Config{},
+	&UrlEntry{},
 }
 
 const ConfigDownloadingID = "downloading"
 const ConfigImageGateway = "imageGateway"
 
 type Config struct {
-	Name  string `json:"name" gorm:"primary_key"`
+	Name  string `json:"name" gorm:"primary_key;type:varchar(255)"`
 	Value string `json:"value" gorm:"type: varchar(255) null"`
 }
 
@@ -34,11 +35,11 @@ const MigrationStatusFinished = "finished"
 
 type Migration struct {
 	Id               int64      `json:"id" gorm:"primary_key"`
-	Addr             string     `json:"addr" binding:"required" gorm:"unique:, type:varchar(128) not null"`
-	ChainRpc         string     `json:"chainRpc" binding:"" gorm:"type: varchar(300) not null"`
+	Addr             string     `json:"addr" binding:"required" gorm:"unique;type:varchar(128) not null"`
+	ChainRpc         string     `json:"chainRpc" binding:"" gorm:"type:varchar(300) not null"`
 	TotalSupply      int        `json:"totalSupply" gorm:""`
 	DownloadedMeta   int        `json:"downloadedMeta" gorm:""`
-	Status           string     `json:"status" binding:"" gorm:"type: varchar(64) not null"`
+	Status           string     `json:"status" binding:"" gorm:"type:varchar(64) not null"`
 	ImageFileEntryId int        `json:"imageFileEntryId" gorm:""`
 	MetaFileEntryId  int        `json:"metaFileEntryId" gorm:""`
 	ImageUploaded    bool       `json:"imageUploaded" binding:"" gorm:"type: bool not null"`
@@ -48,10 +49,19 @@ type Migration struct {
 	UpdatedAt        *time.Time `json:"updated_at,string,omitempty"`
 }
 
+// UrlEntry  urls we have downloaded
+type UrlEntry struct {
+	Id          int64      `json:"id" gorm:"primary_key"`
+	MigrationId int64      `json:"migrationId" gorm:"uniqueIndex:idx_mig_id_url;"`
+	Url         string     `json:"url" binding:"required" gorm:"uniqueIndex:idx_mig_id_url;type:varchar(256) not null"`
+	LocalName   string     `json:"localName" gorm:"type:varchar(256) not null"`
+	CreatedAt   *time.Time `json:"created_at,string,omitempty"`
+}
+
 type FileEntry struct {
 	Id        int64      `json:"id" gorm:"primary_key"`
 	UserId    int64      `json:"user_id" gorm:"index"`
-	Name      string     `json:"name" binding:"required" gorm:"not null"`
+	Name      string     `json:"name" binding:"required" gorm:"type:varchar(256) not null"`
 	Size      int64      `json:"size" gorm:""`
 	RootId    int64      `json:"root_id" gorm:""`
 	CreatedAt *time.Time `json:"created_at,string,omitempty"`
@@ -63,7 +73,7 @@ type RootIndex struct {
 	// it's file entry id
 	Id         int64      `json:"id" gorm:"primary_key"`
 	FileId     int64      `json:"file_id" gorm:"not null"`
-	Root       string     `json:"root" binding:"" gorm:"unique:, type:char(66) not null"`
+	Root       string     `json:"root" binding:"" gorm:"unique;type:char(66) not null"`
 	TxHash     string     `json:"tx_hash" binding:"" gorm:"type:char(66)"`
 	PaidAt     *time.Time `json:"paid_at,string,omitempty"`
 	UploadedAt *time.Time `json:"uploaded_at,string,omitempty"`
@@ -91,8 +101,8 @@ type FileStoreQueue struct {
 
 type User struct {
 	Id        int64      `json:"id" gorm:"primary_key"`
-	Name      string     `json:"name" binding:"required" gorm:"unique:, type: varchar(128) not null"`
-	Token     string     `json:"token" binding:"required" gorm:"unique:, type:varchar(66) not null"`
+	Name      string     `json:"name" binding:"required" gorm:"unique;type: varchar(128) not null"`
+	Token     string     `json:"token" binding:"required" gorm:"unique;type:varchar(66) not null"`
 	CreatedAt *time.Time `json:"created_at,string,omitempty"`
 	UpdatedAt *time.Time `json:"updated_at,string,omitempty"`
 }

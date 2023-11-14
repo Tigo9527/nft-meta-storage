@@ -23,6 +23,7 @@ var (
 	FileTxQueue    *fileTxQueue
 	Migration      *migration
 	RootIndex      *rootIndex
+	UrlEntry       *urlEntry
 	User           *user
 )
 
@@ -34,6 +35,7 @@ func SetDefault(db *gorm.DB, opts ...gen.DOOption) {
 	FileTxQueue = &Q.FileTxQueue
 	Migration = &Q.Migration
 	RootIndex = &Q.RootIndex
+	UrlEntry = &Q.UrlEntry
 	User = &Q.User
 }
 
@@ -46,6 +48,7 @@ func Use(db *gorm.DB, opts ...gen.DOOption) *Query {
 		FileTxQueue:    newFileTxQueue(db, opts...),
 		Migration:      newMigration(db, opts...),
 		RootIndex:      newRootIndex(db, opts...),
+		UrlEntry:       newUrlEntry(db, opts...),
 		User:           newUser(db, opts...),
 	}
 }
@@ -59,6 +62,7 @@ type Query struct {
 	FileTxQueue    fileTxQueue
 	Migration      migration
 	RootIndex      rootIndex
+	UrlEntry       urlEntry
 	User           user
 }
 
@@ -73,6 +77,7 @@ func (q *Query) clone(db *gorm.DB) *Query {
 		FileTxQueue:    q.FileTxQueue.clone(db),
 		Migration:      q.Migration.clone(db),
 		RootIndex:      q.RootIndex.clone(db),
+		UrlEntry:       q.UrlEntry.clone(db),
 		User:           q.User.clone(db),
 	}
 }
@@ -94,6 +99,7 @@ func (q *Query) ReplaceDB(db *gorm.DB) *Query {
 		FileTxQueue:    q.FileTxQueue.replaceDB(db),
 		Migration:      q.Migration.replaceDB(db),
 		RootIndex:      q.RootIndex.replaceDB(db),
+		UrlEntry:       q.UrlEntry.replaceDB(db),
 		User:           q.User.replaceDB(db),
 	}
 }
@@ -105,6 +111,7 @@ type queryCtx struct {
 	FileTxQueue    IFileTxQueueDo
 	Migration      IMigrationDo
 	RootIndex      IRootIndexDo
+	UrlEntry       IUrlEntryDo
 	User           IUserDo
 }
 
@@ -116,6 +123,7 @@ func (q *Query) WithContext(ctx context.Context) *queryCtx {
 		FileTxQueue:    q.FileTxQueue.WithContext(ctx),
 		Migration:      q.Migration.WithContext(ctx),
 		RootIndex:      q.RootIndex.WithContext(ctx),
+		UrlEntry:       q.UrlEntry.WithContext(ctx),
 		User:           q.User.WithContext(ctx),
 	}
 }

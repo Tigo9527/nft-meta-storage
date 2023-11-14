@@ -8,6 +8,7 @@ import (
 	"github.com/pkg/errors"
 	"io"
 	"io/ioutil"
+	"nft.house/service/query"
 	"os"
 	"regexp"
 	"strings"
@@ -140,7 +141,7 @@ func (packInfo *PackInfo) SplitChunks() {
 	}
 }
 
-func ReplaceImageInMeta(dir string, urlPrefix string) error {
+func ReplaceImageInMeta(dir string, urlPrefix string, taskId int64) error {
 	metaList, err := FilterFiles(dir, "\\d+\\.json")
 	if err != nil {
 		return errors.WithMessage(err, "failed to filter meta list")
@@ -173,9 +174,19 @@ func ReplaceImageInMeta(dir string, urlPrefix string) error {
 		if jsonObj["_image"] == nil {
 			jsonObj["_image"] = jsonObj["image"]
 		}
-
-		// eg. 123.meta contains 123.image.xxx.jpg
-		matchedImage := matchImageList(metaFile, imageList)
+		var matchedImage string
+		if taskId > 0 {
+			localName, err := query.GetCachedUrl(taskId, jsonObj["image"].(string))
+			if err != nil {
+				return err
+			} else if localName == "" {
+				return fmt.Errorf("cache must exists when packing, task %d url %s", taskId, jsonObj["image"])
+			}
+			matchedImage = localName
+		} else {
+			// eg. 123.meta contains 123.image.xxx.jpg
+			matchedImage = matchImageList(metaFile, imageList)
+		}
 		if matchedImage == "" {
 			return fmt.Errorf("image not found for %s", metaFile)
 		}

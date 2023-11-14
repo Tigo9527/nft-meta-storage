@@ -17,7 +17,11 @@ var downloadNftCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		rpc, _ := cmd.Flags().GetString("rpc")
 
-		nft.Setup(rpc)
+		err := nft.Setup(rpc)
+		if err != nil {
+			logrus.WithError(err).Error("failed")
+			return
+		}
 
 		contract, err := cmd.Flags().GetString("contract")
 		if err != nil {
@@ -95,7 +99,7 @@ var packMetaCmd = &cobra.Command{
 			// remove last slash
 			uri = uri[0 : len(uri)-1]
 		}
-		err := nft.ReplaceImageInMeta("./download", uri)
+		err := nft.ReplaceImageInMeta("./download", uri, 0)
 		if err != nil {
 			logrus.Error("replace image err : ", err)
 			return

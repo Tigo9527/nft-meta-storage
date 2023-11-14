@@ -11,6 +11,7 @@ import (
 	"nft.house/service/db_models"
 	"nft.house/service/query"
 	"os"
+	"path"
 	"strings"
 	"time"
 )
@@ -66,7 +67,7 @@ func CheckMigrationTask() {
 				break
 			}
 			nftDir := fmt.Sprintf("./download/%s", bean.Addr)
-			err = nft.ReplaceImageInMeta(nftDir, imgGatewayConf.Value)
+			err = nft.ReplaceImageInMeta(nftDir, imgGatewayConf.Value, bean.Id)
 			if err != nil {
 				break
 			}
@@ -266,13 +267,29 @@ func download(bean *db_models.Migration) error {
 		if err != nil {
 			return errors.WithMessage(err, "failed to parse image, meta file "+metaFile)
 		}
-		filename := imgUrl[strings.LastIndex(imgUrl, "/")+1:]
-		imgDst := fmt.Sprintf("%s/%s.image.%s", saveAtDir, tokenId, filename)
-		_, err = nft.Download(imgUrl, imgDst)
-		if err != nil {
-			return errors.WithMessage(err, "failed to download image "+imgUrl)
-		}
 
+		localName, err := query.GetCachedUrl(bean.Id, imgUrl)
+		if err != nil {
+			return err
+		}
+		// download if local cache is empty
+		if localName == "" {
+			filename := imgUrl[strings.LastIndex(imgUrl, "/")+1:]
+			imgDst := fmt.Sprintf("%s/%s.image.%s", saveAtDir, tokenId, filename)
+			_, err = nft.Download(imgUrl, imgDst)
+			if err != nil {
+				return errors.WithMessage(err, "failed to download image "+imgUrl)
+			}
+			err := query.UrlEntry.Save(&db_models.UrlEntry{
+				Id:          0,
+				MigrationId: bean.Id,
+				Url:         imgUrl,
+				LocalName:   path.Base(imgDst),
+			})
+			if err != nil {
+				return err
+			}
+		}
 		//update progress
 		bean.DownloadedMeta += 1
 		err = DB.Model(bean).Update("downloaded_meta", bean.DownloadedMeta).Error
