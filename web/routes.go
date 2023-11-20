@@ -28,6 +28,15 @@ func Routes(route *gin.Engine) {
 	group.GET("/meta/:id", func(c *gin.Context) {
 		c.Redirect(http.StatusMovedPermanently, group.BasePath()+"/static/meta/"+c.Param("id")+".json")
 	})
+	// for demo nft meta generation
+	group.GET("/meta/robohash/:set/:id", func(c *gin.Context) {
+		id := c.Param("id")
+		set := c.Param("set")
+		str := fmt.Sprintf(`{"name":"%s", "image":"%s"}`,
+			"robohash#"+id, "https://robohash.org/"+id+"?set="+set)
+		c.Writer.Header().Set("Content-Type", "application/json")
+		_, _ = c.Writer.WriteString(str)
+	})
 	group.GET("/", api.Wrap(hello))
 	group.POST("/store", authWrap(nftStore))
 	// example path: /res/0x***/1.json
