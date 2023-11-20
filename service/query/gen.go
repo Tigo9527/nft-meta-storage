@@ -21,7 +21,9 @@ var (
 	FileEntry      *fileEntry
 	FileStoreQueue *fileStoreQueue
 	FileTxQueue    *fileTxQueue
+	Hex64          *hex64
 	Migration      *migration
+	ResourceMap    *resourceMap
 	RootIndex      *rootIndex
 	UrlEntry       *urlEntry
 	User           *user
@@ -33,7 +35,9 @@ func SetDefault(db *gorm.DB, opts ...gen.DOOption) {
 	FileEntry = &Q.FileEntry
 	FileStoreQueue = &Q.FileStoreQueue
 	FileTxQueue = &Q.FileTxQueue
+	Hex64 = &Q.Hex64
 	Migration = &Q.Migration
+	ResourceMap = &Q.ResourceMap
 	RootIndex = &Q.RootIndex
 	UrlEntry = &Q.UrlEntry
 	User = &Q.User
@@ -46,7 +50,9 @@ func Use(db *gorm.DB, opts ...gen.DOOption) *Query {
 		FileEntry:      newFileEntry(db, opts...),
 		FileStoreQueue: newFileStoreQueue(db, opts...),
 		FileTxQueue:    newFileTxQueue(db, opts...),
+		Hex64:          newHex64(db, opts...),
 		Migration:      newMigration(db, opts...),
+		ResourceMap:    newResourceMap(db, opts...),
 		RootIndex:      newRootIndex(db, opts...),
 		UrlEntry:       newUrlEntry(db, opts...),
 		User:           newUser(db, opts...),
@@ -60,7 +66,9 @@ type Query struct {
 	FileEntry      fileEntry
 	FileStoreQueue fileStoreQueue
 	FileTxQueue    fileTxQueue
+	Hex64          hex64
 	Migration      migration
+	ResourceMap    resourceMap
 	RootIndex      rootIndex
 	UrlEntry       urlEntry
 	User           user
@@ -75,7 +83,9 @@ func (q *Query) clone(db *gorm.DB) *Query {
 		FileEntry:      q.FileEntry.clone(db),
 		FileStoreQueue: q.FileStoreQueue.clone(db),
 		FileTxQueue:    q.FileTxQueue.clone(db),
+		Hex64:          q.Hex64.clone(db),
 		Migration:      q.Migration.clone(db),
+		ResourceMap:    q.ResourceMap.clone(db),
 		RootIndex:      q.RootIndex.clone(db),
 		UrlEntry:       q.UrlEntry.clone(db),
 		User:           q.User.clone(db),
@@ -97,7 +107,9 @@ func (q *Query) ReplaceDB(db *gorm.DB) *Query {
 		FileEntry:      q.FileEntry.replaceDB(db),
 		FileStoreQueue: q.FileStoreQueue.replaceDB(db),
 		FileTxQueue:    q.FileTxQueue.replaceDB(db),
+		Hex64:          q.Hex64.replaceDB(db),
 		Migration:      q.Migration.replaceDB(db),
+		ResourceMap:    q.ResourceMap.replaceDB(db),
 		RootIndex:      q.RootIndex.replaceDB(db),
 		UrlEntry:       q.UrlEntry.replaceDB(db),
 		User:           q.User.replaceDB(db),
@@ -109,7 +121,9 @@ type queryCtx struct {
 	FileEntry      IFileEntryDo
 	FileStoreQueue IFileStoreQueueDo
 	FileTxQueue    IFileTxQueueDo
+	Hex64          IHex64Do
 	Migration      IMigrationDo
+	ResourceMap    IResourceMapDo
 	RootIndex      IRootIndexDo
 	UrlEntry       IUrlEntryDo
 	User           IUserDo
@@ -121,7 +135,9 @@ func (q *Query) WithContext(ctx context.Context) *queryCtx {
 		FileEntry:      q.FileEntry.WithContext(ctx),
 		FileStoreQueue: q.FileStoreQueue.WithContext(ctx),
 		FileTxQueue:    q.FileTxQueue.WithContext(ctx),
+		Hex64:          q.Hex64.WithContext(ctx),
 		Migration:      q.Migration.WithContext(ctx),
+		ResourceMap:    q.ResourceMap.WithContext(ctx),
 		RootIndex:      q.RootIndex.WithContext(ctx),
 		UrlEntry:       q.UrlEntry.WithContext(ctx),
 		User:           q.User.WithContext(ctx),

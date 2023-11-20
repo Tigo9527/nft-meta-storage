@@ -15,6 +15,7 @@ import (
 	"nft.house/service/db_models"
 	"nft.house/service/query"
 	"os"
+	"path"
 	"strconv"
 	"time"
 )
@@ -144,6 +145,9 @@ func migrationInfo(ctx *gin.Context) (interface{}, error) {
 func resourceRequest(ctx *gin.Context) {
 	root := ctx.Param("root")
 	name := ctx.Param("name")
+	if service.PatchResource(ctx, root, name) {
+		return
+	}
 
 	err := service.ServeFileFromStorage(root, name, ctx.Writer)
 	logrus.WithError(err).Debug("ServeFileFromStorage")
@@ -204,14 +208,33 @@ func nftStore(ctx *gin.Context) (interface{}, error) {
 		return nil, BuildError("invalid `meta` in multipart")
 	}
 
+	rootArr, ok := mForm.Value["root"]
+	if !ok || len(meta) != 1 {
+		return nil, BuildError("invalid `root` in multipart")
+	}
+	root := rootArr[0]
+
+	tokenIdArr, ok := mForm.Value["tokenId"]
+	if !ok || len(meta) != 1 {
+		return nil, BuildError("invalid `tokenId` in multipart")
+	}
+	tokenId := tokenIdArr[0]
+
 	var result map[string]interface{}
 	err = json.Unmarshal([]byte(meta[0]), &result)
 	if err != nil {
 		return nil, BuildError("can not unmarshal `meta` to a json")
 	}
 
+	now := time.Now()
 	var fileEntries []*db_models.FileEntry
 	logrus.Debug("form file count ", len(mForm.File))
+	imgGatewayConf, err_ := query.Config.Where(query.Config.Name.Eq(db_models.ConfigImageGateway)).Take()
+	err = err_
+	if service.IsNotFound(err) || imgGatewayConf == nil || imgGatewayConf.Value == "" {
+		err = fmt.Errorf("must config image gateway")
+		return nil, err
+	}
 	for field, f := range mForm.File {
 		if len(f) != 1 {
 			return nil, BuildError("file field %v should (only) have 1 element", field)
@@ -227,7 +250,6 @@ func nftStore(ctx *gin.Context) (interface{}, error) {
 			return nil, BuildError("can not open file %v", field)
 		}
 
-		now := time.Now()
 		filePath := fmt.Sprintf("./upload/%s_%s_%s", now.Format(time.RFC3339), field, oneFile.Filename)
 		w, err := os.Create(filePath)
 		if err != nil {
@@ -238,7 +260,8 @@ func nftStore(ctx *gin.Context) (interface{}, error) {
 		if err != nil {
 			return nil, BuildError("failed to save file")
 		}
-		result[field] = filePath
+		result[field] = fmt.Sprintf("%s/%s/%s",
+			imgGatewayConf.Value, root, path.Base(filePath))
 
 		fileEntries = append(fileEntries, &db_models.FileEntry{
 			Id:        0,
@@ -251,30 +274,72 @@ func nftStore(ctx *gin.Context) (interface{}, error) {
 		})
 	}
 
-	if len(fileEntries) > 0 {
-		err = service.DB.Transaction(func(tx *gorm.DB) error {
-			err := service.DB.Create(fileEntries).Error
-			if err != nil {
-				return errors.WithMessage(err, "Failed to save file entries in DB")
-			}
-			var txArr []*db_models.FileTxQueue
-			for _, entry := range fileEntries {
-				txArr = append(txArr, &db_models.FileTxQueue{
-					Id:        0, // auto increment
-					CreatedAt: entry.CreatedAt,
-					FileId:    entry.Id,
-				})
-			}
-			err = service.DB.Create(txArr).Error
-			if err != nil {
-				return errors.WithMessage(err, "Failed to save tx queue in DB")
-			}
-			return nil
-		})
+	metaPath := fmt.Sprintf("./upload/%s_%s.json", now.Format(time.RFC3339), tokenId)
+	metaWriter, err := os.Create(metaPath)
+	if err != nil {
+		return nil, err
+	}
+	metaBytes, err := json.Marshal(result)
+	if err != nil {
+		return nil, err
+	}
+	_, err = metaWriter.Write(metaBytes)
+	if err != nil {
+		return nil, err
+	}
+	metaFileEntry := &db_models.FileEntry{
+		Id:        0,
+		UserId:    0,
+		Name:      metaPath,
+		Size:      int64(len(metaBytes)),
+		RootId:    0,
+		CreatedAt: &now,
+		UpdatedAt: &now,
+	}
+	fileEntries = append(fileEntries, metaFileEntry)
+
+	err = service.DB.Transaction(func(tx *gorm.DB) error {
+		err := tx.Create(fileEntries).Error
 		if err != nil {
-			logrus.WithError(err).Error("Failed to save infos to DB.")
-			return nil, err
+			return errors.WithMessage(err, "Failed to save file entries in DB")
 		}
+		var txArr []*db_models.FileTxQueue
+		for _, entry := range fileEntries {
+			txArr = append(txArr, &db_models.FileTxQueue{
+				Id:        0, // auto increment
+				CreatedAt: entry.CreatedAt,
+				FileId:    entry.Id,
+			})
+		}
+		err = tx.Create(txArr).Error
+		if err != nil {
+			return errors.WithMessage(err, "Failed to save tx queue in DB")
+		}
+		var hex64 db_models.Hex64
+		// save hex64
+		err = tx.FirstOrCreate(&hex64, &db_models.Hex64{Hex: root}).Error
+		if err != nil {
+			return errors.WithMessage(err, "Failed to save hex64 in DB")
+		}
+		// save resource map
+		var resMap []*db_models.ResourceMap
+		for _, entry := range fileEntries {
+			resourceName := path.Base(entry.Name)
+			if entry == metaFileEntry {
+				resourceName = fmt.Sprintf("%s.json", tokenId)
+			}
+			resMap = append(resMap, &db_models.ResourceMap{
+				Id:       0,
+				HexId:    hex64.Id,
+				Resource: resourceName,
+				FileId:   entry.Id,
+			})
+		}
+		return tx.Create(resMap).Error
+	})
+	if err != nil {
+		logrus.WithError(err).Error("Failed to save infos to DB.")
+		return nil, err
 	}
 
 	return result, nil

@@ -8,15 +8,18 @@
             /*border: 1px solid blue;*/
             width: fit-content;
         }
+
         #submit {
             align-self: center;
         }
+
         #wrapSubmit {
             /*border: 1px solid black;*/
             /*align-content: center;*/
             display: grid;
             margin-top: 8px;
         }
+
         .mt8 {
             margin-top: 8px;
         }
@@ -29,6 +32,7 @@
                 console.log(`error do post `, e)
             }
         }
+
         function doPost0() {
             const accessKey = document.getElementById("accessKey").value
             const fileInput = document.getElementById("idFile")
@@ -42,12 +46,12 @@
                     return
                 }
             }
-            fetch(form.action,{method:'post', body: formData, headers: {accessKey}}).then(resp=>{
+            fetch(form.action, {method: 'post', body: formData, headers: {accessKey}}).then(resp => {
                 return resp.text()
-            }).then(obj=>{
+            }).then(obj => {
                 console.log(`ok`, obj)
                 document.getElementById("result").innerText = obj;
-            }).catch(err=>{
+            }).catch(err => {
                 console.log(`error `, err)
                 document.getElementById("result").innerText = `${err}`;
             });
@@ -62,9 +66,20 @@ Demo 8
         accessKey: <input type="text" id="accessKey"/>
     </div>
     <form action="/nft-house/store" method="post" enctype="multipart/form-data" onsubmit="doPost(); return false;">
-        meta:
-        <div><textarea name="meta" rows="8" cols="80">{}</textarea></div>
-<!--        webkitdirectory directory multiple-->
+        <div>
+            <label>root:
+                <input type="text" name="root" value="0x634e34e0f9c09dba2e61a398f7b76e6327b97916">
+            </label>
+        </div>
+        <div>
+            <label>tokenId:
+                <input type="text" name="tokenId" value="1">
+            </label>
+        </div>
+        <div><label>meta:
+            <textarea name="meta" rows="8" cols="80">{"name":"test"}</textarea>
+        </label></div>
+        <!--        webkitdirectory directory multiple-->
         image:<input type="file" name="image" id="idFile" accept="*/*"/>
         <div id="wrapSubmit"><input type="submit" value="store it !" id="submit"></div>
 

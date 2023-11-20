@@ -14,6 +14,8 @@ var MigrationModels = []interface{}{
 	&Migration{},
 	&Config{},
 	&UrlEntry{},
+	&ResourceMap{},
+	&Hex64{},
 }
 
 const ConfigDownloadingID = "downloading"
@@ -70,7 +72,6 @@ type FileEntry struct {
 
 // RootIndex unique FileRoot
 type RootIndex struct {
-	// it's file entry id
 	Id         int64      `json:"id" gorm:"primary_key"`
 	FileId     int64      `json:"file_id" gorm:"not null"`
 	Root       string     `json:"root" binding:"" gorm:"unique;type:char(66) not null"`
@@ -79,6 +80,16 @@ type RootIndex struct {
 	UploadedAt *time.Time `json:"uploaded_at,string,omitempty"`
 	CreatedAt  *time.Time `json:"created_at,string,omitempty"`
 	UpdatedAt  *time.Time `json:"updated_at,string,omitempty"`
+}
+type Hex64 struct {
+	Id  int64  `json:"id" gorm:"primary_key"`
+	Hex string `json:"root" binding:"" gorm:"unique;type:char(66) not null"`
+}
+type ResourceMap struct {
+	Id       int64  `json:"id" gorm:"primary_key"`
+	HexId    int64  `json:"hexId" gorm:"uniqueIndex:uk_hex_res;"`
+	Resource string `json:"tokenId" gorm:"uniqueIndex:uk_hex_res;type:varchar(64) not null"`
+	FileId   int64  `json:"fileId" gorm:"not null"`
 }
 
 // FileTxQueue each record represents a payment task that have not been finished on layer 1
