@@ -1,12 +1,12 @@
 package service
 
 import (
+	"errors"
 	"github.com/Conflux-Chain/go-conflux-util/api"
 	"github.com/Conflux-Chain/neurahive-client/file"
 	"github.com/Conflux-Chain/neurahive-client/node"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gin-gonic/gin"
-	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"io"
 	"nft.house/service/query"
@@ -90,27 +90,32 @@ func PatchResource(c *gin.Context, resRoot, name string) bool {
 	if err != nil {
 		api.ResponseError(c, err)
 	} else if localPath != "" {
+		c.Writer.Header().Set("file-source", "local")
 		err := PipeLocalFile(localPath, c.Writer)
 		if err != nil {
 			api.ResponseError(c, err)
 		}
 	} else if newRoot != "" {
-		info, err := ctx.Storage.Neurahive().GetFileInfo(common.HexToHash(newRoot))
-		if err != nil {
-			api.ResponseError(c, err)
-		} else if info == nil || !info.Finalized {
-			api.ResponseError(c, errors.New("file not found on storage."))
-		} else {
-			//info.Tx.Size
-			err = PipeStorageFile(c.Writer, info, ctx.Storage.Neurahive())
-			if err != nil {
-				api.ResponseError(c, err)
-			}
-		}
+		c.Writer.Header().Set("replacement-root", resRoot)
+		ServeRawStorageFile(c, newRoot)
 	} else {
 		return false
 	}
 	return true
+}
+
+func ServeRawStorageFile(c *gin.Context, resRoot string) {
+	info, err := ctx.Storage.Neurahive().GetFileInfo(common.HexToHash(resRoot))
+	if err != nil {
+		api.ResponseError(c, err)
+	} else if info == nil || !info.Finalized {
+		api.ResponseError(c, errors.New("file not found in storage"))
+	} else {
+		err = PipeStorageFile(c.Writer, info, ctx.Storage.Neurahive())
+		if err != nil {
+			api.ResponseError(c, err)
+		}
+	}
 }
 
 func PipeStorageFile(to io.Writer, info *node.FileInfo, storage *node.NeurahiveClient) error {

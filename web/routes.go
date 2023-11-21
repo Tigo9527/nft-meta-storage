@@ -17,6 +17,7 @@ import (
 	"os"
 	"path"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -39,6 +40,10 @@ func Routes(route *gin.Engine) {
 	})
 	group.GET("/", api.Wrap(hello))
 	group.POST("/store", authWrap(nftStore))
+	// example path: /res/0x***
+	group.GET("/res/:root", func(c *gin.Context) {
+		service.ServeRawStorageFile(c, c.Param("root"))
+	})
 	// example path: /res/0x***/1.json
 	group.GET("/res/:root/:name", resourceRequest)
 	// append .json, and redirect
@@ -153,11 +158,15 @@ func migrationInfo(ctx *gin.Context) (interface{}, error) {
 
 func resourceRequest(ctx *gin.Context) {
 	root := ctx.Param("root")
-	name := ctx.Param("name")
+	//name := ctx.Param("name")
+	// meta may contains query string, will be used as file name when migrating download
+	fullPath := ctx.Request.RequestURI
+	name := fullPath[strings.LastIndex(fullPath, "/")+1:]
+	ctx.Writer.Header().Set("res", name)
 	if service.PatchResource(ctx, root, name) {
 		return
 	}
-
+	ctx.Writer.Header().Set("file-source", "remote")
 	err := service.ServeFileFromStorage(root, name, ctx.Writer)
 	logrus.WithError(err).Debug("ServeFileFromStorage")
 	if err != nil {
@@ -237,7 +246,7 @@ func nftStore(ctx *gin.Context) (interface{}, error) {
 
 	now := time.Now()
 	var fileEntries []*db_models.FileEntry
-	logrus.Debug("form file count ", len(mForm.File))
+	//logrus.Debug("form file count ", len(mForm.File), " props", mForm)
 	imgGatewayConf, err_ := query.Config.Where(query.Config.Name.Eq(db_models.ConfigImageGateway)).Take()
 	err = err_
 	if service.IsNotFound(err) || imgGatewayConf == nil || imgGatewayConf.Value == "" {
@@ -351,7 +360,16 @@ func nftStore(ctx *gin.Context) (interface{}, error) {
 		return nil, err
 	}
 
-	return result, nil
+	info := make(map[string]string)
+	if img, ok := result["image"]; ok {
+		info["image"] = img.(string)
+	}
+	info["meta"] = fmt.Sprintf("%s/%s/%s",
+		// token uri in format prefix_url/{id},
+		// which will be redirected to /res/{id}.json
+		strings.Replace(imgGatewayConf.Value, "/res", "/storage/meta", -1),
+		root, tokenId)
+	return info, nil
 }
 
 func hello(ctx *gin.Context) (interface{}, error) {

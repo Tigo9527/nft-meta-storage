@@ -108,7 +108,7 @@ func runTask(task *db_models.FileStoreQueue, ctx *StorageContext) {
 		logWithFields.WithError(err).Error("failed to upload, root index error")
 		return
 	}
-	if task.Step == db_models.UploadStepUploading {
+	if task.Step == db_models.UploadStepUploading && rootIndex.UploadedAt == nil {
 		var fileEntry db_models.FileEntry
 		err = DB.Where("id=?", rootIndex.FileId).Take(&fileEntry).Error
 		if err != nil {
