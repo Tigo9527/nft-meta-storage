@@ -208,5 +208,13 @@ func ParseImage(filePath string) (string, error) {
 		return "", err
 	}
 
-	return result["image"].(string), nil
+	imageMaybe, ok := result["image"]
+	if !ok {
+		return "", errors.Errorf("image not found in meta")
+	}
+	imageStr, ok := imageMaybe.(string)
+	if !ok {
+		return "", errors.Errorf("image is not a string: %v", imageMaybe)
+	}
+	return imageStr, nil
 }
