@@ -220,8 +220,8 @@ func download(bean *db_models.Migration) error {
 			// permission or what ever error
 			return err
 		}
-	} else {
-		// delete it
+	} else if bean.DownloadedMeta == 0 {
+		// delete it for the first time
 		err = os.RemoveAll(saveAtDir)
 		if err != nil {
 			return err
