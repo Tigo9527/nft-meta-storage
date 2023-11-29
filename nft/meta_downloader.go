@@ -41,7 +41,7 @@ func Setup(rpc string) error {
 	}
 	client, err := sdk.NewClient(url)
 	if err != nil {
-		logrus.WithError(err).Fatal("can not create cfx client")
+		logrus.WithError(err).Error("can not create cfx client")
 		return err
 	}
 	cfxClient = client
