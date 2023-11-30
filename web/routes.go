@@ -133,6 +133,7 @@ func addMigration(ctx *gin.Context) (interface{}, error) {
 		Id:               0,
 		Addr:             ctx.Query("addr"),
 		ChainRpc:         ctx.Query("chainRpc"),
+		ERC:              ctx.Query("erc"),
 		TotalSupply:      0,
 		DownloadedMeta:   0,
 		Status:           "download",

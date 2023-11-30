@@ -32,6 +32,7 @@ type ContractContext struct {
 	uriBulkCaller *openzeppelin.IERC721MetadataBulkCaller
 	Name          string
 	Caller        *openzeppelin.ERC721EnumerableCaller
+	Caller1155    *openzeppelin.IERC1155MetadataURICaller
 }
 
 func Setup(rpc string) error {
@@ -66,6 +67,11 @@ func BuildERC721Enumerable(base32addr string) (*ContractContext, error) {
 		return nil, errors.WithMessage(err, "failed to call NewERC721EnumerableCaller")
 	}
 
+	erc1155UriCaller, err := openzeppelin.NewIERC1155MetadataURICaller(address, cfxClient)
+	if err != nil {
+		return nil, errors.WithMessage(err, "failed to call NewIERC1155MetadataURICaller")
+	}
+
 	metaBulkCaller, err := openzeppelin.NewIERC721MetadataBulkCaller(address, cfxClient)
 	if err != nil {
 		return nil, errors.WithMessage(err, "failed to call NewIERC721MetadataBulkCaller")
@@ -88,6 +94,7 @@ func BuildERC721Enumerable(base32addr string) (*ContractContext, error) {
 		uriBulkCaller: metaBulkCaller,
 		Name:          name,
 		Caller:        erc721Caller,
+		Caller1155:    erc1155UriCaller,
 	}
 	logrus.Info("name is ", name)
 	return ctx, nil

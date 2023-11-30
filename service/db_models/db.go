@@ -38,6 +38,7 @@ const MigrationStatusFinished = "finished"
 type Migration struct {
 	Id               int64      `json:"id" gorm:"primary_key"`
 	Addr             string     `json:"addr" binding:"required" gorm:"unique;type:varchar(128) not null"`
+	ERC              string     `json:"erc" binding:"required" gorm:"type:varchar(16) not null"`
 	ChainRpc         string     `json:"chainRpc" binding:"" gorm:"type:varchar(300) not null"`
 	TotalSupply      int        `json:"totalSupply" gorm:""`
 	DownloadedMeta   int        `json:"downloadedMeta" gorm:""`

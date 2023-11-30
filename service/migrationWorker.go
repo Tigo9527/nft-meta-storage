@@ -246,10 +246,16 @@ func download(bean *db_models.Migration) error {
 			log.WithField("TokenByIndex", bean.DownloadedMeta).Error("error context")
 			return errors.WithMessage(err, "failed to call TokenByIndex")
 		}
-
-		uri, err := ctx.Caller.TokenURI(nft.CallOpts, tokenId)
+		uri := ""
+		if bean.ERC == "721" {
+			uri, err = ctx.Caller.TokenURI(nft.CallOpts, tokenId)
+		} else if bean.ERC == "1155" {
+			uri, err = ctx.Caller1155.Uri(nft.CallOpts, tokenId)
+		} else {
+			return errors.New("unknown erc " + bean.ERC)
+		}
 		if err != nil {
-			log.WithField("TokenURI", tokenId).Error("error context")
+			log.WithField("TokenURI/uri", tokenId).Error("error context")
 			return errors.WithMessage(err, "failed to call TokenURI")
 		}
 
