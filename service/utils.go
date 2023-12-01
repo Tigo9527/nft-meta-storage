@@ -2,9 +2,11 @@ package service
 
 import (
 	"fmt"
+	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
+	"net/http"
 	"nft.house/service/db_models"
 	"strconv"
 )
@@ -72,4 +74,18 @@ root_indices.tx_hash AS tx_hash
 		ptr = nil
 	}
 	return ptr, err
+}
+
+func CheckCache(ctx *gin.Context, root, name string) bool {
+	// cache for 1 year
+	ctx.Header("Cache-Control", "public, max-age=31536000")
+	etag := root + "/" + name
+	ctx.Header("ETag", etag)
+	if match := ctx.GetHeader("If-None-Match"); match != "" {
+		if match == etag {
+			ctx.Status(http.StatusNotModified)
+			return true
+		}
+	}
+	return false
 }

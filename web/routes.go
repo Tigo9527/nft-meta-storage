@@ -164,10 +164,17 @@ func resourceRequest(ctx *gin.Context) {
 	fullPath := ctx.Request.RequestURI
 	name := fullPath[strings.LastIndex(fullPath, "/")+1:]
 	ctx.Writer.Header().Set("res", name)
+
+	if service.CheckCache(ctx, root, name) {
+		return
+	}
+
 	if service.PatchResource(ctx, root, name) {
 		return
 	}
+
 	ctx.Writer.Header().Set("file-source", "remote")
+
 	err := service.ServeFileFromStorage(root, name, ctx.Writer)
 	logrus.WithError(err).Debug("ServeFileFromStorage")
 	if err != nil {

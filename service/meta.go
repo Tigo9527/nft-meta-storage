@@ -40,8 +40,8 @@ type ResourceInfo struct {
 	UploadedAt *time.Time
 }
 
-// FineLocalResource return localPath, root, error
-func FineLocalResource(resRoot, name string) (string, string, error) {
+// FindLocalResource return localPath, root, error
+func FindLocalResource(resRoot, name string) (string, string, error) {
 	hex64 := query.Hex64
 	resMap := query.ResourceMap
 	fe := query.FileEntry
@@ -85,8 +85,12 @@ func PipeLocalFile(localPath string, w io.Writer) error {
 	return err
 }
 
+// PatchResource use resource mapping in database if any.
+// For example, after migrating a NFT, people still could mint new tokens,
+// we should handle these new metadata request properly.
+// They have the same URI prefix with previously migrated tokens.
 func PatchResource(c *gin.Context, resRoot, name string) bool {
-	localPath, newRoot, err := FineLocalResource(resRoot, name)
+	localPath, newRoot, err := FindLocalResource(resRoot, name)
 	if err != nil {
 		api.ResponseError(c, err)
 	} else if localPath != "" {
@@ -105,6 +109,9 @@ func PatchResource(c *gin.Context, resRoot, name string) bool {
 }
 
 func ServeRawStorageFile(c *gin.Context, resRoot string) {
+	if CheckCache(c, resRoot, "") {
+		return
+	}
 	info, err := ctx.Storage.Neurahive().GetFileInfo(common.HexToHash(resRoot))
 	if err != nil {
 		api.ResponseError(c, err)
