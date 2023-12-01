@@ -19,6 +19,7 @@ var MigrationModels = []interface{}{
 }
 
 const ConfigDownloadingID = "downloading"
+const ConfigDownloadLimit = "downloadLimit"
 const ConfigImageGateway = "imageGateway"
 
 type Config struct {

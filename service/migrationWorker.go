@@ -231,10 +231,14 @@ func download(bean *db_models.Migration) error {
 	if err != nil {
 		return errors.WithMessage(err, "mkdirAll")
 	}
+	limit, err := GetIntConfig(db_models.ConfigDownloadLimit, 5)
+	if err != nil {
+		return err
+	}
 	for {
 		log := logrus.WithFields(logrus.Fields{"contract": bean.Addr, "name": bean.Name})
-		if bean.DownloadedMeta >= bean.TotalSupply {
-			logrus.Infof("%d >= %d , stop downloading\n", bean.DownloadedMeta, bean.TotalSupply)
+		if bean.DownloadedMeta >= bean.TotalSupply || (limit > 0 && bean.DownloadedMeta >= limit) {
+			logrus.Infof("%d >= (%d or %d) , stop downloading\n", bean.DownloadedMeta, bean.TotalSupply, limit)
 			err = DB.Model(bean).Update("status", db_models.MigrationStatusPackImage).Error
 			if err != nil {
 				return errors.WithMessage(err, "failed to update status")
